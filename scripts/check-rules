@@ -1,0 +1,10 @@
+#!/bin/bash
+#
+# 運用ルール確認用スクリプト
+
+set -eu
+
+cd "$(dirname "$0")"
+
+docker run --rm -v "$PWD:/mnt" koalaman/shellcheck:stable ./* \
+  && docker run --rm -v "$PWD:/mnt" -w /mnt mvdan/shfmt -l -w -i 2 -ci -bn ./*

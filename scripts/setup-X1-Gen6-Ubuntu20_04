@@ -1,0 +1,199 @@
+#!/bin/bash
+#
+# x1 carbon 6th gen上にUbuntu20.04の環境を構築するスクリプト
+
+set -eu
+
+cd "$(dirname "$0")"
+
+###############################################################################
+# 手動で設定する必要のあるもの
+###############################################################################
+# システムのサウンドをミュートに変更する
+# ~/.config/pulse/*-stream-volumes.tdbで変更しているっぽいが、バイナリ形式でコマンドもなく面倒だったので保留
+
+# Gnome Shell Extensionsはコマンドでも入れられるっぽいが、ブラウザのGnome Shell integrationの有無とかが面倒くさいので手でいれる。
+# Win Tile
+#https://extensions.gnome.org/extension/1723/wintile-windows-10-window-tiling-for-gnome/
+
+###############################################################################
+# パッケージインストール
+###############################################################################
+echo -e '\e[31mStart package install...'
+# 非公式ppaはなるべく利用しない方針
+sudo apt-get update
+# デフォルトで入っているUbuntu Softwareはsnap版で、
+# 使い始めの頃は不具合も多かったのでgnome-softwareを入れ直す
+sudo apt-get -y install gnome-software
+# 高度なGNOMEオプション設定ツール
+sudo apt-get -y install gnome-tweaks
+# ダウンロードスクリプトにcurlを使用するものがある為入れておく
+sudo apt-get -y install curl
+# Google Chrome
+wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+sudo apt-get -y install ./google-chrome-stable_current_amd64.deb
+rm google-chrome-stable_current_amd64.deb
+# vim
+sudo apt-get -y install vim
+# geditの保存がなぜか遅いので変わりのエディタ
+sudo apt-get -y install featherpad
+echo -e '\e[31mEnd package install'
+
+###############################################################################
+# カーネルパラメータ設定
+###############################################################################
+# streaming視聴が一瞬途切れたりするのでC-stateを無効化（C1が最大？）
+# intel_idleドライバだとstreaming視聴時に途切れたりすることがあったのでacpi_idleドライバに変更
+echo -e '\e[31mStart Kernel setting...'
+sudo sed -i 's/^GRUB_CMDLINE_LINUX_DEFAULT=.*$/GRUB_CMDLINE_LINUX_DEFAULT="quiet splash intel_idle.max_cstate=0 processor.max_cstate=0"/' /etc/default/grub
+sudo update-grub
+echo -e '\e[31mEnd Kernel setting'
+
+###############################################################################
+# その他設定
+###############################################################################
+# streaming視聴が一瞬途切れたりするのでワイヤレスアダプタの省電力設定をoff
+# https://gist.github.com/jcberthon/ea8cfe278998968ba7c5a95344bc8b55
+echo -e '\e[31mStart NetworkManager setting...'
+sudo rm /etc/NetworkManager/conf.d/default-wifi-powersave-on.conf
+sudo cp ../setting-files/wifi-powersave-off.conf /etc/NetworkManager/conf.d/
+echo -e '\e[31mEnd NetworkManager setting'
+
+# 誤爆を防ぐために中ボタン貼り付けをoff
+# https://www.virment.com/thinkpad-ubuntu-how-to-disable-middle-button-paste/
+echo -e '\e[31mStart Middle button setting...'
+cat <<EOF >>~/.profile
+# 中ボタン貼り付け無効
+xinput set-button-map "TPPS/2 Elan TrackPoint" 1 0 3 4 5 6 7
+EOF
+echo -e '\e[31mEnd Middle button setting'
+
+# 常用しているaliasを設定
+echo -e '\e[31mStart alias setting...'
+cat <<EOF >>~/.bash_aliases
+alias auaau='sudo apt update && sudo apt upgrade -y'
+alias open='xdg-open'
+# use alias sudo
+function im_check () {
+  if [ $(ibus engine) = "mozc-jp" ]; then
+    ibus engine xkb:us::eng
+  fi
+}
+alias sudo='im_check; sudo '
+EOF
+echo -e '\e[31mEnd alias setting'
+
+# サスペンド後にトラックポイントが動かなくなることがあるので対応策
+# https://bugzilla.redhat.com/show_bug.cgi?id=1560723
+echo -e '\e[31mStart Trackpad setting...'
+sudo cp ../setting-files/trackpad /lib/systemd/system-sleep/
+sudo chmod 755 /lib/systemd/system-sleep/trackpad
+echo -e '\e[31mEnd Trackpad setting'
+
+# CUI利用時に面倒なのでディレクトリ名を英語に変更
+# 必要に応じて日本語ディレクトリは自分で削除
+# http://blog.1q77.com/2013/06/xdg-user-dirs-update/
+echo -e '\e[31mStart Directory setting...'
+LANG=C xdg-user-dirs-update --force
+rmdir ~/ダウンロード/ ~/ピクチャ/ ~/デスクトップ/ ~/ビデオ/ ~/テンプレート/ ~/ドキュメント/ ~/ミュージック/ ~/公開/
+# 起動時にuser-dirs.locale記載の物と現在の環境変数が異なった場合に確認ダイアログが出てきてしまう為、削除
+rm ~/.config/user-dirs.locale
+echo -e '\e[31mEnd Directory setting'
+
+# システムの日本語フォントサイズが微妙に合っていないので変更
+# https://qiita.com/outou_hakutou/items/ce06cb3c8c355d5fd87c
+echo -e '\e[31mStart Font setting...'
+wget https://launchpad.net/~sicklylife/+archive/ubuntu/fonts-ja/+files/fonts-nt-ui-jp_2_all.deb
+sudo apt-get -y install ./fonts-nt-ui-jp_2_all.deb
+rm fonts-nt-ui-jp_2_all.deb
+echo -e '\e[31mEnd Font setting'
+
+# 右クリックで空のファイルが作成できるようにする
+echo -e '\e[31mStart File setting...'
+touch ~/Templates/Untitled.txt
+echo -e '\e[31mEnd File setting'
+
+# トラックポイントの速度を調節する
+echo -e '\e[31mStart Track Point setting...'
+sudo cp ../setting-files/local-overrides.quirks /etc/libinput/
+echo -e '\e[31mEnd Track Point setting'
+
+# マウスの速度を調節する
+echo -e '\e[31mStart Mouse setting...'
+gsettings set org.gnome.desktop.peripherals.mouse speed 1.0
+echo -e '\e[31mEnd Mouse setting'
+
+echo -e '\e[31mStart Touchpad setting...'
+# タッチパッドの速度を調節する
+gsettings set org.gnome.desktop.peripherals.touchpad speed 1.0
+# タップでクリックしないようにする
+gsettings set org.gnome.desktop.peripherals.touchpad tap-to-click false
+echo -e '\e[31mEnd Touchpad setting'
+
+# デスクトップからゴミ箱を削除する
+echo -e '\e[31mStart Desktop setting...'
+gsettings set org.gnome.shell.extensions.desktop-icons show-trash false
+# デスクトップからHOMEディレクトリを削除する
+gsettings set org.gnome.shell.extensions.desktop-icons show-home false
+echo -e '\e[31mEnd Desktop setting'
+
+# ダークテーマを使用する
+echo -e '\e[31mStart theme setting...'
+gsettings set org.gnome.desktop.interface gtk-theme 'Yaru-dark'
+echo -e '\e[31mEnd theme setting'
+
+echo -e '\e[31mStart Ubuntu Dock setting...'
+# Ubuntu Dockにゴミ箱を追加する
+gsettings set org.gnome.shell.extensions.dash-to-dock show-trash true
+# Ubuntu Dockにソフトウェアを追加
+gsettings set org.gnome.shell favorite-apps "['google-chrome.desktop', 'featherpad.desktop']"
+# Ubuntu Dockのサイズを変更
+gsettings set org.gnome.shell.extensions.dash-to-dock dash-max-icon-size 16
+echo -e '\e[31mEnd Ubuntu Dock setting'
+
+# ホームディレクトリを開くショートカットを作成
+echo -e '\e[31mStart keyboard shortcut keys setting...'
+gsettings set org.gnome.settings-daemon.plugins.media-keys home ["'<Super>e'"]
+echo -e '\e[31mEnd keyboard shortcut keys setting'
+
+# アクティビティ画面の検索を無効にする
+echo -e '\e[31mStart Search setting...'
+gsettings set org.gnome.desktop.search-providers disable-external true
+echo -e '\e[31mEnd Search setting'
+
+# ディスプレイの倍率を変更する
+echo -e '\e[31mStart Display setting...'
+# 任意倍率の許可
+gsettings set org.gnome.mutter experimental-features ["'x11-randr-fractional-scaling'"]
+# 倍率設定(125%)
+sudo cp ../setting-files/monitors.xml ~/.config/
+echo -e '\e[31mEnd Display setting'
+
+# アニメーションの無効
+echo -e '\e[31mStart Animation setting...'
+gsettings set org.gnome.desktop.interface enable-animations false
+echo -e '\e[31mEnd Animation setting'
+
+# 中クリックによる貼り付けを無効
+echo -e '\e[31mStart Middle click paste setting...'
+gsettings set org.gnome.desktop.interface gtk-enable-primary-paste false
+echo -e '\e[31mEnd Middle click paste setting'
+
+echo -e '\e[31mStart Top bar setting...'
+# バッテリー残量を表示
+gsettings set org.gnome.desktop.interface show-battery-percentage true
+# 曜日を表示
+gsettings set org.gnome.desktop.interface clock-show-weekday true
+# 日付を表示
+gsettings set org.gnome.desktop.interface clock-show-date true
+echo -e '\e[31mEnd Top bar setting'
+
+# アクティビティ画面のショートカットキーを変更
+echo -e '\e[31mStart Activity shortcut keys setting...'
+gsettings set org.gnome.mutter overlay-key 'Super_R'
+echo -e '\e[31mEnd Activity shortcut keys setting'
+
+# マウスクリックのエミュレーションを無効にする
+echo -e '\e[31mStart Click Emulation setting...'
+gsettings set org.gnome.desktop.peripherals.touchpad click-method 'none'
+echo -e '\e[31mEnd Click Emulation setting'
