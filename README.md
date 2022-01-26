@@ -8,7 +8,7 @@ My Ubuntu Standard Enviroment
 - [Docker](https://www.docker.com/)
 - [ShellCheck](https://www.shellcheck.net/)
 - [EditorConfig](https://editorconfig.org/)
-- [shfmt]](https://github.com/mvdan/sh)
+- [shfmt](https://github.com/mvdan/sh)
 - [Semantic Commit Messages](https://gist.github.com/joshbuchea/6f47e86d2510bce28f8e7f42ae84c716)
 
 その他詳細については[doc](doc)を参照
@@ -27,7 +27,7 @@ $ sudo dmidecode --type system | grep -e "Product Name" -e Version
 ```
 
 ## 設定スクリプト
-[./scripts/setup-x1-20_04](./scripts/setup-x1-20_04)を実行
+[./scripts/setup-X1-Gen6-Ubuntu20_04](./scripts/setup-X1-Gen6-Ubuntu20_04)を実行
 
 ## GNOME Shell Extensions
 - [WinTile](https://extensions.gnome.org/extension/1723/wintile-windows-10-window-tiling-for-gnome/)
